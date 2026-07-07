@@ -1,20 +1,30 @@
 /* ============================================================
- * Screen — Products List (§5.4) + Add/Edit/Delete/Detail
- * ============================================================
- * Uses React Query mutations for CRUD, Redux for state.
+ * Screen - Product Management
  * ============================================================ */
 
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Plus, Search, Eye, Pencil, Trash2, Package,
-  AlertTriangle, Loader2, ImageUp,
+  AlertCircle,
+  AlertTriangle,
+  Eye,
+  ImageUp,
+  Loader2,
+  Package,
+  Pencil,
+  Plus,
+  RefreshCcw,
+  Search,
+  Trash2,
 } from "lucide-react";
-import { useAppSelector } from "@/redux/store";
-import { selectProducts, selectProductsInitialized } from "@/redux/slices/productsSlice";
-import { useProducts, useAddProduct, useUpdateProduct, useDeleteProduct } from "@/hooks/queries/useProductsQuery";
-import { MOCK_CATEGORIES } from "@/mock/categories";
-import { getStockStatus, getStockLabel } from "@/types/product";
-import type { Product, Category } from "@/types/product";
+import {
+  createProduct,
+  getAllProducts,
+  toggleDeleteProduct,
+  updateProduct,
+  type ApiProduct,
+  type ProductFormPayload,
+} from "@/api/products";
 import { APP_CONFIG } from "@/constants/config";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/Toast";
@@ -25,110 +35,233 @@ import { EmptyState } from "@/components/common/EmptyState";
 
 const PAGE_SIZES = APP_CONFIG.pagination.limitOptions;
 
+type StockFilter = "all" | "in_stock" | "low_stock" | "out_of_stock";
+type StatusFilter = "active" | "deleted" | "all";
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(value));
+}
+
+function getStockStatus(product: ApiProduct): Exclude<StockFilter, "all"> {
+  if (product.inStock === 0) return "out_of_stock";
+  if (product.inStock < 5) return "low_stock";
+  return "in_stock";
+}
+
+function getStockLabel(status: Exclude<StockFilter, "all">) {
+  if (status === "out_of_stock") return "Out of Stock";
+  if (status === "low_stock") return "Low Stock";
+  return "In Stock";
+}
+
+function getStockBadgeClass(status: Exclude<StockFilter, "all">) {
+  if (status === "out_of_stock") return "erp-badge--danger";
+  if (status === "low_stock") return "erp-badge--warning";
+  return "erp-badge--success";
+}
+
+function normalizeImageUrl(url?: string) {
+  const value = url?.trim();
+  if (!value) return "";
+  if (value.startsWith("//")) return `https:${value}`;
+  if (value.startsWith("http://")) return value.replace("http://", "https://");
+  if (value.startsWith("https://") || value.startsWith("blob:")) return value;
+  if (value.startsWith("res.cloudinary.com/")) return `https://${value}`;
+  return value;
+}
+
+function getProductImageUrl(product?: Pick<ApiProduct, "productImg" | "img">) {
+  return normalizeImageUrl(product?.productImg || product?.img);
+}
+
 export default function ProductsPage() {
   const { user } = useAuth();
   const { addToast } = useToast();
+  const queryClient = useQueryClient();
   const canEdit = user?.role === "Admin" || user?.role === "Manager";
 
-  // React Query for initialization + mutations
-  const { isLoading: queryLoading } = useProducts();
-  const addMutation = useAddProduct();
-  const updateMutation = useUpdateProduct();
-  const deleteMutation = useDeleteProduct();
-
-  // Redux as source of truth
-  const products = useAppSelector(selectProducts);
-  const initialized = useAppSelector(selectProductsInitialized);
-  const loading = queryLoading || !initialized;
-
-  const [categories] = useState<Category[]>(MOCK_CATEGORIES);
   const [search, setSearch] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("");
-  const [stockFilter, setStockFilter] = useState("");
+  const [stockFilter, setStockFilter] = useState<StockFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [sortField, setSortField] = useState<string>("name");
+  const [sortField, setSortField] = useState<keyof ApiProduct>("productName");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
-
   const [addModalOpen, setAddModalOpen] = useState(false);
-  const [editProduct, setEditProduct] = useState<Product | null>(null);
-  const [deleteProduct, setDeleteProduct] = useState<Product | null>(null);
-  const [detailProduct, setDetailProduct] = useState<Product | null>(null);
+  const [editProduct, setEditProduct] = useState<ApiProduct | null>(null);
+  const [deleteProduct, setDeleteProduct] = useState<ApiProduct | null>(null);
+  const [detailProduct, setDetailProduct] = useState<ApiProduct | null>(null);
+
+  const productsQuery = useQuery({
+    queryKey: ["products"],
+    queryFn: getAllProducts,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: createProduct,
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["products"] }),
+        queryClient.invalidateQueries({ queryKey: ["product-analytics"] }),
+      ]);
+      addToast("success", "Product created successfully.");
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: updateProduct,
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["products"] }),
+        queryClient.invalidateQueries({ queryKey: ["product-analytics"] }),
+      ]);
+      addToast("success", "Product updated successfully.");
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: toggleDeleteProduct,
+    onSuccess: async (product) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["products"] }),
+        queryClient.invalidateQueries({ queryKey: ["product-analytics"] }),
+      ]);
+      addToast(
+        "success",
+        product.isDeleted ? "Product deleted." : "Product restored."
+      );
+    },
+  });
+
+  const products = productsQuery.data || [];
+  const activeProducts = products.filter((product) => !product.isDeleted);
+  const deletedProducts = products.filter((product) => product.isDeleted);
+  const lowStockProducts = activeProducts.filter(
+    (product) => getStockStatus(product) !== "in_stock"
+  );
 
   const filtered = useMemo(() => {
-    let result = [...products];
-    if (search) {
-      const q = search.toLowerCase();
-      result = result.filter((p) => p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q));
-    }
-    if (categoryFilter) result = result.filter((p) => p.category.id === categoryFilter);
-    if (stockFilter) result = result.filter((p) => getStockStatus(p.stock) === stockFilter);
+    const query = search.trim().toLowerCase();
 
-    result.sort((a, b) => {
-      let cmp = 0;
-      switch (sortField) {
-        case "name": cmp = a.name.localeCompare(b.name); break;
-        case "sku": cmp = a.sku.localeCompare(b.sku); break;
-        case "purchasePrice": cmp = a.purchasePrice - b.purchasePrice; break;
-        case "sellingPrice": cmp = a.sellingPrice - b.sellingPrice; break;
-        case "stock": cmp = a.stock - b.stock; break;
-        default: cmp = a.name.localeCompare(b.name);
-      }
-      return sortDir === "asc" ? cmp : -cmp;
+    const result = products.filter((product) => {
+      const matchesSearch = query
+        ? product.productName.toLowerCase().includes(query) ||
+          product.sku.toLowerCase().includes(query)
+        : true;
+      const matchesStock =
+        stockFilter === "all" || getStockStatus(product) === stockFilter;
+      const matchesStatus =
+        statusFilter === "all" ||
+        (statusFilter === "active" && !product.isDeleted) ||
+        (statusFilter === "deleted" && product.isDeleted);
+
+      return matchesSearch && matchesStock && matchesStatus;
     });
-    return result;
-  }, [products, search, categoryFilter, stockFilter, sortField, sortDir]);
+
+    return result.sort((a, b) => {
+      const aValue = a[sortField];
+      const bValue = b[sortField];
+      let comparison = 0;
+
+      if (typeof aValue === "number" && typeof bValue === "number") {
+        comparison = aValue - bValue;
+      } else {
+        comparison = String(aValue).localeCompare(String(bValue));
+      }
+
+      return sortDir === "asc" ? comparison : -comparison;
+    });
+  }, [products, search, sortDir, sortField, statusFilter, stockFilter]);
 
   const totalItems = filtered.length;
-  const totalPages = Math.ceil(totalItems / pageSize);
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
+  const loading = productsQuery.isLoading;
+  const hasError = productsQuery.isError;
+  const errorMessage =
+    productsQuery.error?.message || "Unable to load product records.";
 
-  const handleSort = (field: string) => {
-    if (sortField === field) setSortDir((p) => (p === "asc" ? "desc" : "asc"));
-    else { setSortField(field); setSortDir("asc"); }
-  };
-
-  const formatCurrency = (v: number) => `${APP_CONFIG.currency}${v.toFixed(2)}`;
-  const formatDate = (iso: string) => new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
-
-  const handleAddProduct = async (data: Partial<Product>) => {
-    await addMutation.mutateAsync(data);
-    setAddModalOpen(false);
-    addToast("success", "Product added.");
-  };
-
-  const handleEditProduct = async (data: Partial<Product>) => {
-    if (!editProduct) return;
-    await updateMutation.mutateAsync({ ...editProduct, ...data, updatedAt: new Date().toISOString() });
-    setEditProduct(null);
-    addToast("success", "Changes saved.");
-  };
-
-  const handleDeleteProduct = async () => {
-    if (!deleteProduct) return;
-    await deleteMutation.mutateAsync(deleteProduct.id);
-    setDeleteProduct(null);
-    addToast("success", "Product deleted.");
-  };
-
-  const getPageNumbers = () => {
-    const pages: (number | "...")[] = [];
-    if (totalPages <= 5) { for (let i = 1; i <= totalPages; i++) pages.push(i); }
-    else {
-      pages.push(1);
-      if (page > 3) pages.push("...");
-      for (let i = Math.max(2, page - 1); i <= Math.min(totalPages - 1, page + 1); i++) pages.push(i);
-      if (page < totalPages - 2) pages.push("...");
-      pages.push(totalPages);
+  const handleSort = (field: keyof ApiProduct) => {
+    if (sortField === field) {
+      setSortDir((current) => (current === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      setSortDir("asc");
     }
-    return pages;
+  };
+
+  const handleAddProduct = async (payload: ProductFormPayload) => {
+    await createMutation.mutateAsync(payload);
+    setAddModalOpen(false);
+  };
+
+  const handleEditProduct = async (payload: ProductFormPayload) => {
+    if (!editProduct) return;
+    await updateMutation.mutateAsync({ id: editProduct._id, payload });
+    setEditProduct(null);
+  };
+
+  const handleToggleDelete = async () => {
+    if (!deleteProduct) return;
+    await deleteMutation.mutateAsync(deleteProduct._id);
+    setDeleteProduct(null);
   };
 
   if (loading) {
     return (
       <>
-        <div className="erp-page-header"><div className="erp-skeleton erp-skeleton--heading" /><div className="erp-skeleton erp-skeleton--btn" /></div>
-        <div className="erp-card">{Array.from({ length: 5 }).map((_, i) => (<div key={i} className="erp-skeleton erp-skeleton--row" />))}</div>
+        <div className="erp-page-header">
+          <div className="erp-skeleton erp-skeleton--heading" />
+          <div className="erp-skeleton erp-skeleton--btn" />
+        </div>
+        <div className="erp-card">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div key={index} className="erp-skeleton erp-skeleton--row" />
+          ))}
+        </div>
+      </>
+    );
+  }
+
+  if (hasError) {
+    return (
+      <>
+        <div className="erp-page-header">
+          <div className="erp-page-header__left">
+            <h1 className="text-display">Products</h1>
+            <p className="erp-page-header__subtitle">
+              Manage inventory, pricing, stock, and product images.
+            </p>
+          </div>
+        </div>
+        <div className="erp-card">
+          <EmptyState
+            icon={AlertCircle}
+            headline="Could not load products"
+            body={errorMessage}
+            action={
+              <button
+                className="erp-btn erp-btn--md erp-btn--outline"
+                onClick={() => productsQuery.refetch()}
+              >
+                <RefreshCcw className="erp-btn__icon" />
+                Try Again
+              </button>
+            }
+          />
+        </div>
       </>
     );
   }
@@ -136,167 +269,801 @@ export default function ProductsPage() {
   return (
     <>
       <div className="erp-page-header">
-        <div className="erp-page-header__left"><h1 className="text-display">Products</h1></div>
-        {canEdit && (<button className="erp-btn erp-btn--md erp-btn--primary" onClick={() => setAddModalOpen(true)}><Plus className="erp-btn__icon" />Add Product</button>)}
-      </div>
-
-      <div className="erp-filter-row">
-        <div className="erp-input-wrapper"><Search className="erp-input-wrapper__icon-left" /><input className="erp-input" type="text" placeholder="Search by name or SKU…" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} aria-label="Search products" /></div>
-        <select className="erp-select erp-select--sm" value={categoryFilter} onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }} aria-label="Filter by category"><option value="">All Categories</option>{categories.map((cat) => (<option key={cat.id} value={cat.id}>{cat.name}</option>))}</select>
-        <select className="erp-select erp-select--sm" value={stockFilter} onChange={(e) => { setStockFilter(e.target.value); setPage(1); }} aria-label="Filter by stock level"><option value="">All Stock Levels</option><option value="in_stock">In Stock</option><option value="low_stock">Low Stock</option><option value="out_of_stock">Out of Stock</option></select>
-      </div>
-
-      {filtered.length === 0 ? (
-        <div className="erp-card">
-          {search || categoryFilter || stockFilter ? (
-            <EmptyState icon={Search} headline="No matches found" body="Try a different search term or clear your filters." action={<button className="erp-btn erp-btn--md erp-btn--outline" onClick={() => { setSearch(""); setCategoryFilter(""); setStockFilter(""); }}>Clear filters</button>} />
-          ) : (
-            <EmptyState icon={Package} headline="No products yet" body="Add your first product to start tracking inventory." action={canEdit ? (<button className="erp-btn erp-btn--md erp-btn--primary" onClick={() => setAddModalOpen(true)}><Plus className="erp-btn__icon" />Add Product</button>) : undefined} />
-          )}
+        <div className="erp-page-header__left">
+          <h1 className="text-display">Products</h1>
+          <p className="erp-page-header__subtitle">
+            Manage product catalog records, images, pricing, and stock levels.
+          </p>
         </div>
-      ) : (
-        <div className="erp-table-container erp-table-container--responsive">
-          <table className="erp-table">
-            <thead className="erp-table__head">
-              <tr className="erp-table__header-row">
-                <th className="erp-table__th">Image</th>
-                <th className="erp-table__th erp-table__th--sortable" onClick={() => handleSort("name")}><span className="erp-table__th-content">Name</span></th>
-                <th className="erp-table__th erp-table__th--sortable" onClick={() => handleSort("sku")}><span className="erp-table__th-content">SKU</span></th>
-                <th className="erp-table__th">Category</th>
-                <th className="erp-table__th erp-table__th--right erp-table__th--sortable" onClick={() => handleSort("purchasePrice")}><span className="erp-table__th-content">Purchase</span></th>
-                <th className="erp-table__th erp-table__th--right erp-table__th--sortable" onClick={() => handleSort("sellingPrice")}><span className="erp-table__th-content">Selling</span></th>
-                <th className="erp-table__th erp-table__th--right erp-table__th--sortable" onClick={() => handleSort("stock")}><span className="erp-table__th-content">Stock</span></th>
-                <th className="erp-table__th erp-table__th--right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="erp-table__body">
+        {canEdit && (
+          <button
+            className="erp-btn erp-btn--md erp-btn--primary"
+            onClick={() => setAddModalOpen(true)}
+          >
+            <Plus className="erp-btn__icon" />
+            Add Product
+          </button>
+        )}
+      </div>
+
+      <div className="erp-product-overview">
+        <div className="erp-role-stat">
+          <span className="erp-role-stat__label">Active Products</span>
+          <span className="erp-role-stat__value">{activeProducts.length}</span>
+        </div>
+        <div className="erp-role-stat">
+          <span className="erp-role-stat__label">Low / Out Stock</span>
+          <span className="erp-role-stat__value">{lowStockProducts.length}</span>
+        </div>
+        <div className="erp-role-stat">
+          <span className="erp-role-stat__label">Deleted Products</span>
+          <span className="erp-role-stat__value">{deletedProducts.length}</span>
+        </div>
+      </div>
+
+      <section className="erp-product-panel">
+        <div className="erp-role-toolbar">
+          <div className="erp-input-wrapper erp-role-toolbar__search">
+            <Search className="erp-input-wrapper__icon-left" />
+            <input
+              className="erp-input erp-role-search-input"
+              type="text"
+              placeholder="Search products or SKU..."
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setPage(1);
+              }}
+            />
+          </div>
+          <select
+            className="erp-select erp-product-filter"
+            value={stockFilter}
+            onChange={(event) => {
+              setStockFilter(event.target.value as StockFilter);
+              setPage(1);
+            }}
+          >
+            <option value="all">All stock</option>
+            <option value="in_stock">In stock</option>
+            <option value="low_stock">Low stock</option>
+            <option value="out_of_stock">Out of stock</option>
+          </select>
+          <select
+            className="erp-select erp-product-filter"
+            value={statusFilter}
+            onChange={(event) => {
+              setStatusFilter(event.target.value as StatusFilter);
+              setPage(1);
+            }}
+          >
+            <option value="active">Active</option>
+            <option value="deleted">Deleted</option>
+            <option value="all">All status</option>
+          </select>
+        </div>
+
+        {filtered.length === 0 ? (
+          <div className="erp-role-empty">
+            <EmptyState
+              icon={Package}
+              headline="No products found"
+              body="Adjust filters or create a product with image, SKU, price, and stock."
+              action={
+                canEdit ? (
+                  <button
+                    className="erp-btn erp-btn--md erp-btn--primary"
+                    onClick={() => setAddModalOpen(true)}
+                  >
+                    <Plus className="erp-btn__icon" />
+                    Add Product
+                  </button>
+                ) : undefined
+              }
+            />
+          </div>
+        ) : (
+          <div className="erp-table-container erp-table-container--responsive">
+            <table className="erp-table">
+              <thead className="erp-table__head">
+                <tr className="erp-table__header-row">
+                  <th className="erp-table__th">Product</th>
+                  <th
+                    className="erp-table__th erp-table__th--sortable"
+                    onClick={() => handleSort("sku")}
+                  >
+                    SKU
+                  </th>
+                  <th
+                    className="erp-table__th erp-table__th--right erp-table__th--sortable"
+                    onClick={() => handleSort("actualPrice")}
+                  >
+                    Actual
+                  </th>
+                  <th
+                    className="erp-table__th erp-table__th--right erp-table__th--sortable"
+                    onClick={() => handleSort("sellingPrice")}
+                  >
+                    Selling
+                  </th>
+                  <th
+                    className="erp-table__th erp-table__th--right erp-table__th--sortable"
+                    onClick={() => handleSort("inStock")}
+                  >
+                    Stock
+                  </th>
+                  <th className="erp-table__th">Status</th>
+                  <th className="erp-table__th erp-table__th--right">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="erp-table__body">
+                {paginated.map((product) => {
+                  const stockStatus = getStockStatus(product);
+                  const badgeClass = getStockBadgeClass(stockStatus);
+
+                  return (
+                    <tr
+                      key={product._id}
+                      className={`erp-table__row${
+                        stockStatus !== "in_stock"
+                          ? " erp-table__row--low-stock"
+                          : ""
+                      }`}
+                    >
+                      <td className="erp-table__td">
+                        <div className="erp-product-cell">
+                          <ProductImage
+                            product={product}
+                            className="erp-product-cell__image"
+                          />
+                          <div className="erp-product-cell__body">
+                            <span className="erp-product-cell__name">
+                              {product.productName}
+                            </span>
+                            <span className="erp-product-cell__meta">
+                              Updated {formatDate(product.updatedAt)}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="erp-table__td">
+                        <span className="numeral">{product.sku}</span>
+                      </td>
+                      <td className="erp-table__td erp-table__td--numeric">
+                        {formatCurrency(product.actualPrice)}
+                      </td>
+                      <td className="erp-table__td erp-table__td--numeric">
+                        {formatCurrency(product.sellingPrice)}
+                      </td>
+                      <td className="erp-table__td erp-table__td--numeric">
+                        {product.inStock}
+                      </td>
+                      <td className="erp-table__td">
+                        <div className="erp-row erp-row--gap-8">
+                          <span className={`erp-badge ${badgeClass}`}>
+                            {stockStatus !== "in_stock" && (
+                              <AlertTriangle className="erp-badge__icon" />
+                            )}
+                            {getStockLabel(stockStatus)}
+                          </span>
+                          {product.isDeleted && (
+                            <span className="erp-badge erp-badge--danger">
+                              Deleted
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="erp-table__td erp-table__td--actions">
+                        <div className="erp-table__actions">
+                          <button
+                            className="erp-table__action-btn"
+                            onClick={() => setDetailProduct(product)}
+                            aria-label={`View ${product.productName}`}
+                          >
+                            <Eye className="erp-table__action-btn-icon" />
+                          </button>
+                          {canEdit && (
+                            <>
+                              <button
+                                className="erp-table__action-btn"
+                                onClick={() => setEditProduct(product)}
+                                aria-label={`Edit ${product.productName}`}
+                              >
+                                <Pencil className="erp-table__action-btn-icon" />
+                              </button>
+                              <button
+                                className="erp-table__action-btn erp-table__action-btn--danger"
+                                onClick={() => setDeleteProduct(product)}
+                                aria-label={
+                                  product.isDeleted
+                                    ? `Restore ${product.productName}`
+                                    : `Delete ${product.productName}`
+                                }
+                              >
+                                <Trash2 className="erp-table__action-btn-icon" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+
+            <div className="erp-mobile-cards">
               {paginated.map((product) => {
-                const status = getStockStatus(product.stock);
-                const stockLabel = getStockLabel(status);
-                const badgeClass = status === "in_stock" ? "erp-badge--success" : status === "low_stock" ? "erp-badge--warning" : "erp-badge--danger";
-                const rowClass = status === "low_stock" ? " erp-table__row--low-stock" : "";
+                const stockStatus = getStockStatus(product);
+                const badgeClass = getStockBadgeClass(stockStatus);
+
                 return (
-                  <tr key={product.id} className={`erp-table__row${rowClass}`}>
-                    <td className="erp-table__td"><div className="erp-table__thumbnail-fallback"><Package className="erp-table__thumbnail-fallback-icon" /></div></td>
-                    <td className="erp-table__td">{product.name}</td>
-                    <td className="erp-table__td erp-table__td--numeric">{product.sku}</td>
-                    <td className="erp-table__td"><span className="erp-badge erp-badge--neutral">{product.category.name}</span></td>
-                    <td className="erp-table__td erp-table__td--numeric">{formatCurrency(product.purchasePrice)}</td>
-                    <td className="erp-table__td erp-table__td--numeric">{formatCurrency(product.sellingPrice)}</td>
-                    <td className="erp-table__td erp-table__td--numeric">
-                      <span className="erp-row erp-row--gap-8 erp-row--end">
-                        <span>{product.stock}</span>
-                        <span className={`erp-badge ${badgeClass}`}>{status === "low_stock" && <AlertTriangle className="erp-badge__icon" />}{stockLabel}</span>
+                  <div
+                    key={product._id}
+                    className={`erp-mobile-card${
+                      stockStatus !== "in_stock"
+                        ? " erp-mobile-card--low-stock"
+                        : ""
+                    }`}
+                  >
+                    <div className="erp-mobile-card__header">
+                      <span className="erp-mobile-card__title">
+                        {product.productName}
                       </span>
-                    </td>
-                    <td className="erp-table__td erp-table__td--actions">
-                      <div className="erp-table__actions">
-                        <button className="erp-table__action-btn" onClick={() => setDetailProduct(product)} aria-label={`View ${product.name}`}><Eye className="erp-table__action-btn-icon" /></button>
-                        {canEdit && (<><button className="erp-table__action-btn" onClick={() => setEditProduct(product)} aria-label={`Edit ${product.name}`}><Pencil className="erp-table__action-btn-icon" /></button><button className="erp-table__action-btn erp-table__action-btn--danger" onClick={() => setDeleteProduct(product)} aria-label={`Delete ${product.name}`}><Trash2 className="erp-table__action-btn-icon" /></button></>)}
-                      </div>
-                    </td>
-                  </tr>
+                      <span className={`erp-badge ${badgeClass}`}>
+                        {getStockLabel(stockStatus)}
+                      </span>
+                    </div>
+                    <div className="erp-mobile-card__row">
+                      <span className="erp-mobile-card__label">SKU</span>
+                      <span className="erp-mobile-card__value">
+                        {product.sku}
+                      </span>
+                    </div>
+                    <div className="erp-mobile-card__row">
+                      <span className="erp-mobile-card__label">Price</span>
+                      <span className="erp-mobile-card__value">
+                        {formatCurrency(product.sellingPrice)}
+                      </span>
+                    </div>
+                    <div className="erp-role-mobile-actions">
+                      <button
+                        className="erp-btn erp-btn--sm erp-btn--outline"
+                        onClick={() => setDetailProduct(product)}
+                      >
+                        <Eye className="erp-btn__icon" />
+                        View
+                      </button>
+                      {canEdit && (
+                        <button
+                          className="erp-btn erp-btn--sm erp-btn--outline"
+                          onClick={() => setEditProduct(product)}
+                        >
+                          <Pencil className="erp-btn__icon" />
+                          Edit
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 );
               })}
-            </tbody>
-          </table>
-
-          <div className="erp-mobile-cards">
-            {paginated.map((product) => {
-              const status = getStockStatus(product.stock);
-              const stockLabel = getStockLabel(status);
-              const badgeClass = status === "in_stock" ? "erp-badge--success" : status === "low_stock" ? "erp-badge--warning" : "erp-badge--danger";
-              return (
-                <div key={product.id} className={`erp-mobile-card${status === "low_stock" ? " erp-mobile-card--low-stock" : ""}`}>
-                  <div className="erp-mobile-card__header"><span className="erp-mobile-card__title">{product.name}</span><button className="erp-mobile-card__menu-btn" onClick={() => setDetailProduct(product)} aria-label={`View ${product.name}`}><Eye className="erp-table__action-btn-icon" /></button></div>
-                  <div className="erp-mobile-card__row"><span className="erp-mobile-card__label">SKU</span><span className="erp-mobile-card__value erp-mobile-card__value--numeric">{product.sku}</span></div>
-                  <div className="erp-mobile-card__row"><span className="erp-mobile-card__label">Price</span><span className="erp-mobile-card__value erp-mobile-card__value--numeric">{formatCurrency(product.sellingPrice)}</span></div>
-                  <div className="erp-mobile-card__row"><span className="erp-mobile-card__label">Stock</span><span className={`erp-badge ${badgeClass}`}>{stockLabel} ({product.stock})</span></div>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="erp-pagination">
-            <div className="erp-pagination__info">
-              <select className="erp-select erp-select--sm" value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }} aria-label="Rows per page">{PAGE_SIZES.map((size) => (<option key={size} value={size}>{size} / page</option>))}</select>
-              <span className="erp-pagination__text">Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, totalItems)} of {totalItems}</span>
             </div>
-            <div className="erp-pagination__controls">
-              <button className="erp-pagination__btn erp-pagination__btn--nav" disabled={page === 1} onClick={() => setPage((p) => p - 1)} aria-label="Previous page">‹</button>
-              {getPageNumbers().map((p, i) => p === "..." ? (<span key={`e${i}`} className="erp-pagination__ellipsis">…</span>) : (<button key={p} className={`erp-pagination__btn${p === page ? " erp-pagination__btn--active" : ""}`} onClick={() => setPage(p as number)}>{p}</button>))}
-              <button className="erp-pagination__btn erp-pagination__btn--nav" disabled={page === totalPages} onClick={() => setPage((p) => p + 1)} aria-label="Next page">›</button>
+
+            <div className="erp-pagination">
+              <div className="erp-pagination__info">
+                <select
+                  className="erp-select erp-select--sm"
+                  value={pageSize}
+                  onChange={(event) => {
+                    setPageSize(Number(event.target.value));
+                    setPage(1);
+                  }}
+                >
+                  {PAGE_SIZES.map((size) => (
+                    <option key={size} value={size}>
+                      {size} / page
+                    </option>
+                  ))}
+                </select>
+                <span className="erp-pagination__text">
+                  {totalItems} products
+                </span>
+              </div>
+              <div className="erp-pagination__controls">
+                <button
+                  className="erp-pagination__btn erp-pagination__btn--nav"
+                  disabled={page === 1}
+                  onClick={() => setPage((current) => current - 1)}
+                >
+                  &lt;
+                </button>
+                {Array.from({ length: Math.min(totalPages, 5) }).map(
+                  (_, index) => {
+                    const pageNumber = index + 1;
+                    return (
+                      <button
+                        key={pageNumber}
+                        className={`erp-pagination__btn${
+                          pageNumber === page
+                            ? " erp-pagination__btn--active"
+                            : ""
+                        }`}
+                        onClick={() => setPage(pageNumber)}
+                      >
+                        {pageNumber}
+                      </button>
+                    );
+                  }
+                )}
+                <button
+                  className="erp-pagination__btn erp-pagination__btn--nav"
+                  disabled={page === totalPages}
+                  onClick={() => setPage((current) => current + 1)}
+                >
+                  &gt;
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        )}
+      </section>
+
+      <ProductFormModal
+        isOpen={addModalOpen}
+        onClose={() => setAddModalOpen(false)}
+        onSubmit={handleAddProduct}
+        title="Add Product"
+        submitLabel="Create Product"
+        loading={createMutation.isPending}
+        requireImage
+      />
+
+      {editProduct && (
+        <ProductFormModal
+          isOpen={!!editProduct}
+          onClose={() => setEditProduct(null)}
+          onSubmit={handleEditProduct}
+          title="Edit Product"
+          submitLabel="Save Changes"
+          loading={updateMutation.isPending}
+          initialData={editProduct}
+        />
       )}
 
-      <ProductFormModal isOpen={addModalOpen} onClose={() => setAddModalOpen(false)} onSubmit={handleAddProduct} categories={categories} title="Add Product" submitLabel="Add Product" />
-      {editProduct && (<ProductFormModal isOpen={!!editProduct} onClose={() => setEditProduct(null)} onSubmit={handleEditProduct} categories={categories} title="Edit Product" submitLabel="Save Changes" initialData={editProduct} />)}
-      {deleteProduct && (<ConfirmDialog isOpen={!!deleteProduct} onClose={() => setDeleteProduct(null)} onConfirm={handleDeleteProduct} title={`Delete ${deleteProduct.name}?`} body="This can't be undone. The product's data will be permanently removed." confirmLabel="Delete" variant="danger" />)}
+      {deleteProduct && (
+        <ConfirmDialog
+          isOpen={!!deleteProduct}
+          onClose={() => setDeleteProduct(null)}
+          onConfirm={handleToggleDelete}
+          title={`${deleteProduct.isDeleted ? "Restore" : "Delete"} ${
+            deleteProduct.productName
+          }?`}
+          body={
+            deleteProduct.isDeleted
+              ? "This product will return to active inventory lists."
+              : "This toggles the product into a deleted state while preserving history."
+          }
+          confirmLabel={deleteProduct.isDeleted ? "Restore" : "Delete"}
+          variant={deleteProduct.isDeleted ? "neutral" : "danger"}
+        />
+      )}
+
       {detailProduct && (
-        <Drawer isOpen={!!detailProduct} onClose={() => setDetailProduct(null)} title="Product Detail" footer={canEdit ? (<><button className="erp-btn erp-btn--md erp-btn--outline" onClick={() => { setDetailProduct(null); setEditProduct(detailProduct); }}>Edit</button><button className="erp-btn erp-btn--md erp-btn--ghost erp-text-danger" onClick={() => { setDetailProduct(null); setDeleteProduct(detailProduct); }}>Delete</button></>) : undefined}>
-          <div className="erp-product-detail__header"><div className="erp-table__thumbnail-fallback"><Package className="erp-table__thumbnail-fallback-icon" /></div><div className="erp-product-detail__info"><h3 className="text-h2">{detailProduct.name}</h3><span className="text-caption">{detailProduct.sku}</span></div></div>
-          <div className="erp-detail-list">
-            <div className="erp-detail-list__item"><span className="erp-detail-list__label">Category</span><span className="erp-badge erp-badge--neutral">{detailProduct.category.name}</span></div>
-            <div className="erp-detail-list__item"><span className="erp-detail-list__label">Purchase Price</span><span className="erp-detail-list__value erp-detail-list__value--numeric">{formatCurrency(detailProduct.purchasePrice)}</span></div>
-            <div className="erp-detail-list__item"><span className="erp-detail-list__label">Selling Price</span><span className="erp-detail-list__value erp-detail-list__value--numeric">{formatCurrency(detailProduct.sellingPrice)}</span></div>
-            <div className="erp-detail-list__item"><span className="erp-detail-list__label">Stock</span><span className="erp-row erp-row--gap-8"><span className="erp-detail-list__value erp-detail-list__value--numeric">{detailProduct.stock}</span><span className={`erp-badge ${getStockStatus(detailProduct.stock) === "in_stock" ? "erp-badge--success" : getStockStatus(detailProduct.stock) === "low_stock" ? "erp-badge--warning" : "erp-badge--danger"}`}>{getStockLabel(getStockStatus(detailProduct.stock))}</span></span></div>
-            <div className="erp-detail-list__item"><span className="erp-detail-list__label">Created</span><span className="erp-detail-list__value">{formatDate(detailProduct.createdAt)}</span></div>
-            <div className="erp-detail-list__item"><span className="erp-detail-list__label">Last Updated</span><span className="erp-detail-list__value">{formatDate(detailProduct.updatedAt)}</span></div>
-          </div>
+        <Drawer
+          isOpen={!!detailProduct}
+          onClose={() => setDetailProduct(null)}
+          title="Product Detail"
+          footer={
+            canEdit ? (
+              <>
+                <button
+                  className="erp-btn erp-btn--md erp-btn--outline"
+                  onClick={() => {
+                    setDetailProduct(null);
+                    setEditProduct(detailProduct);
+                  }}
+                >
+                  Edit
+                </button>
+                <button
+                  className="erp-btn erp-btn--md erp-btn--ghost erp-text-danger"
+                  onClick={() => {
+                    setDetailProduct(null);
+                    setDeleteProduct(detailProduct);
+                  }}
+                >
+                  {detailProduct.isDeleted ? "Restore" : "Delete"}
+                </button>
+              </>
+            ) : undefined
+          }
+        >
+          <ProductDetail product={detailProduct} />
         </Drawer>
       )}
     </>
   );
 }
 
-/* Product Form Modal */
-interface ProductFormModalProps { isOpen: boolean; onClose: () => void; onSubmit: (data: Partial<Product>) => Promise<void>; categories: Category[]; title: string; submitLabel: string; initialData?: Product; }
+interface ProductFormModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (payload: ProductFormPayload) => Promise<void>;
+  title: string;
+  submitLabel: string;
+  loading: boolean;
+  initialData?: ApiProduct;
+  requireImage?: boolean;
+}
 
-function ProductFormModal({ isOpen, onClose, onSubmit, categories, title, submitLabel, initialData }: ProductFormModalProps) {
-  const [name, setName] = useState(initialData?.name || "");
-  const [sku, setSku] = useState(initialData?.sku || "");
-  const [categoryId, setCategoryId] = useState(initialData?.category.id || categories[0]?.id || "");
-  const [purchasePrice, setPurchasePrice] = useState(initialData?.purchasePrice?.toString() || "");
-  const [sellingPrice, setSellingPrice] = useState(initialData?.sellingPrice?.toString() || "");
-  const [stock, setStock] = useState(initialData?.stock?.toString() || "");
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [formLoading, setFormLoading] = useState(false);
+function ProductFormModal({
+  isOpen,
+  onClose,
+  onSubmit,
+  title,
+  submitLabel,
+  loading,
+  initialData,
+  requireImage = false,
+}: ProductFormModalProps) {
+  const [productName, setProductName] = useState("");
+  const [sku, setSku] = useState("");
+  const [actualPrice, setActualPrice] = useState("");
+  const [sellingPrice, setSellingPrice] = useState("");
+  const [inStock, setInStock] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState("");
+  const [imagePreviewIsLocal, setImagePreviewIsLocal] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
+  const [error, setError] = useState("");
 
-  const validate = (): boolean => {
-    const e: Record<string, string> = {};
-    if (!name.trim()) e.name = "Product name is required.";
-    if (!sku.trim()) e.sku = "SKU is required.";
-    if (!purchasePrice || Number(purchasePrice) <= 0) e.purchasePrice = "Price must be greater than 0.";
-    if (!sellingPrice || Number(sellingPrice) <= 0) e.sellingPrice = "Price must be greater than 0.";
-    if (stock === "" || Number(stock) < 0) e.stock = "Stock must be 0 or more.";
-    setErrors(e);
-    return Object.keys(e).length === 0;
+  useEffect(() => {
+    if (!isOpen) return;
+    setProductName(initialData?.productName || "");
+    setSku(initialData?.sku || "");
+    setActualPrice(initialData?.actualPrice?.toString() || "");
+    setSellingPrice(initialData?.sellingPrice?.toString() || "");
+    setInStock(initialData?.inStock?.toString() || "");
+    setImageFile(null);
+    setImagePreview(getProductImageUrl(initialData));
+    setImagePreviewIsLocal(false);
+    setImageFailed(false);
+    setError("");
+  }, [initialData, isOpen]);
+
+  useEffect(() => {
+    return () => {
+      if (imagePreviewIsLocal && imagePreview) {
+        URL.revokeObjectURL(imagePreview);
+      }
+    };
+  }, [imagePreview, imagePreviewIsLocal]);
+
+  const handleFileChange = (file: File | null) => {
+    if (imagePreviewIsLocal && imagePreview) {
+      URL.revokeObjectURL(imagePreview);
+    }
+
+    setImageFile(file);
+    if (file) {
+      setImagePreview(URL.createObjectURL(file));
+      setImagePreviewIsLocal(true);
+      setImageFailed(false);
+      setError("");
+    } else {
+      setImagePreview(getProductImageUrl(initialData));
+      setImagePreviewIsLocal(false);
+      setImageFailed(false);
+    }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validate()) return;
-    setFormLoading(true);
+  const handleSubmit = async (event?: FormEvent) => {
+    event?.preventDefault();
+
+    if (!productName.trim() || !sku.trim()) {
+      setError("Product name and SKU are required.");
+      return;
+    }
+
+    if (requireImage && !imageFile) {
+      setError("Product image is required for new products.");
+      return;
+    }
+
+    if (
+      !actualPrice ||
+      Number(actualPrice) <= 0 ||
+      !sellingPrice ||
+      Number(sellingPrice) <= 0
+    ) {
+      setError("Actual price and selling price must be greater than 0.");
+      return;
+    }
+
+    if (inStock === "" || Number(inStock) < 0) {
+      setError("Stock must be 0 or more.");
+      return;
+    }
+
     try {
-      await onSubmit({ name: name.trim(), sku: sku.trim(), category: categories.find((c) => c.id === categoryId) || categories[0], purchasePrice: Number(purchasePrice), sellingPrice: Number(sellingPrice), stock: Number(stock) });
-    } finally { setFormLoading(false); }
+      await onSubmit({
+        productName: productName.trim(),
+        sku: sku.trim(),
+        actualPrice: Number(actualPrice),
+        sellingPrice: Number(sellingPrice),
+        inStock: Number(inStock),
+        img: imageFile,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to save product.");
+    }
   };
 
-  const showPriceWarning = purchasePrice && sellingPrice && Number(sellingPrice) < Number(purchasePrice) && Number(sellingPrice) > 0;
+  const margin =
+    actualPrice && sellingPrice
+      ? Number(sellingPrice) - Number(actualPrice)
+      : 0;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={title} size="wide" footer={<><button className="erp-btn erp-btn--md erp-btn--outline" onClick={onClose} disabled={formLoading}>Cancel</button><button className="erp-btn erp-btn--md erp-btn--primary" onClick={handleSubmit} disabled={formLoading}>{formLoading && <Loader2 className="erp-btn__spinner" />}{formLoading ? "Saving…" : submitLabel}</button></>}>
-      <div className="erp-field"><label className="erp-field__label">Product Image</label><div className="erp-upload__dropzone"><ImageUp className="erp-upload__dropzone-icon" /><span className="erp-upload__dropzone-text">Drag an image here, or click to browse</span><span className="erp-upload__dropzone-hint">PNG or JPG, up to 5MB</span></div></div>
-      <div className="erp-field"><label className="erp-field__label" htmlFor="product-name">Product Name<span className="erp-field__required">*</span></label><input id="product-name" className={`erp-input${errors.name ? " erp-input--error" : ""}`} type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Wireless Bluetooth Headphones" />{errors.name && <span className="erp-field__helper erp-field__helper--error">{errors.name}</span>}</div>
-      <div className="erp-field"><label className="erp-field__label" htmlFor="product-sku">SKU<span className="erp-field__required">*</span></label><input id="product-sku" className={`erp-input erp-input--numeric${errors.sku ? " erp-input--error" : ""}`} type="text" value={sku} onChange={(e) => setSku(e.target.value)} placeholder="e.g. EL-WBH-001" /><span className="erp-field__helper">Must be unique.</span>{errors.sku && <span className="erp-field__helper erp-field__helper--error">{errors.sku}</span>}</div>
-      <div className="erp-field"><label className="erp-field__label" htmlFor="product-category">Category</label><select id="product-category" className="erp-select" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>{categories.map((cat) => (<option key={cat.id} value={cat.id}>{cat.name}</option>))}</select></div>
-      <div className="erp-row erp-row--gap-16">
-        <div className="erp-field erp-flex-1"><label className="erp-field__label" htmlFor="product-purchase-price">Purchase Price<span className="erp-field__required">*</span></label><div className="erp-input-wrapper erp-input-wrapper--currency"><span className="erp-input-wrapper__currency">$</span><input id="product-purchase-price" className={`erp-input erp-input--numeric${errors.purchasePrice ? " erp-input--error" : ""}`} type="number" min="0" step="0.01" value={purchasePrice} onChange={(e) => setPurchasePrice(e.target.value)} placeholder="0.00" /></div>{errors.purchasePrice && <span className="erp-field__helper erp-field__helper--error">{errors.purchasePrice}</span>}</div>
-        <div className="erp-field erp-flex-1"><label className="erp-field__label" htmlFor="product-selling-price">Selling Price<span className="erp-field__required">*</span></label><div className="erp-input-wrapper erp-input-wrapper--currency"><span className="erp-input-wrapper__currency">$</span><input id="product-selling-price" className={`erp-input erp-input--numeric${errors.sellingPrice ? " erp-input--error" : ""}`} type="number" min="0" step="0.01" value={sellingPrice} onChange={(e) => setSellingPrice(e.target.value)} placeholder="0.00" /></div>{errors.sellingPrice && <span className="erp-field__helper erp-field__helper--error">{errors.sellingPrice}</span>}{showPriceWarning && <span className="erp-field__helper erp-field__helper--warning">Selling price is lower than purchase price.</span>}</div>
-      </div>
-      <div className="erp-field"><label className="erp-field__label" htmlFor="product-stock">Stock Quantity<span className="erp-field__required">*</span></label><input id="product-stock" className={`erp-input erp-input--numeric${errors.stock ? " erp-input--error" : ""}`} type="number" min="0" step="1" value={stock} onChange={(e) => setStock(e.target.value)} placeholder="0" />{errors.stock && <span className="erp-field__helper erp-field__helper--error">{errors.stock}</span>}</div>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={title}
+      size="wide"
+      footer={
+        <>
+          <button
+            className="erp-btn erp-btn--md erp-btn--outline"
+            onClick={onClose}
+            disabled={loading}
+            type="button"
+          >
+            Cancel
+          </button>
+          <button
+            className="erp-btn erp-btn--md erp-btn--primary"
+            onClick={() => handleSubmit()}
+            disabled={loading}
+            type="button"
+          >
+            {loading && <Loader2 className="erp-btn__spinner" />}
+            {loading ? "Saving..." : submitLabel}
+          </button>
+        </>
+      }
+    >
+      <form className="erp-product-form" onSubmit={handleSubmit}>
+        <div className="erp-field">
+          <label className="erp-field__label" htmlFor="product-image">
+            Product Image
+            {requireImage && <span className="erp-field__required">*</span>}
+          </label>
+          <label
+            className={`erp-product-upload${
+              imagePreview && !imageFailed
+                ? " erp-product-upload--has-preview"
+                : ""
+            }`}
+            htmlFor="product-image"
+          >
+            {imagePreview && !imageFailed ? (
+              <img
+                src={imagePreview}
+                alt="Product preview"
+                onError={() => setImageFailed(true)}
+              />
+            ) : (
+              <>
+                <ImageUp className="erp-upload__dropzone-icon" />
+                <span className="erp-upload__dropzone-text">
+                  Upload product image
+                </span>
+                <span className="erp-upload__dropzone-hint">
+                  PNG or JPG, used in catalog and dashboard tables
+                </span>
+              </>
+            )}
+          </label>
+          <input
+            id="product-image"
+            className="erp-upload__hidden-input"
+            type="file"
+            accept="image/*"
+            onChange={(event) =>
+              handleFileChange(event.target.files?.[0] || null)
+            }
+          />
+        </div>
+
+        <div className="erp-user-form__grid">
+          <ProductTextField
+            id="product-name"
+            label="Product Name"
+            value={productName}
+            onChange={setProductName}
+            placeholder="Dell Inspiron 15"
+            required
+          />
+          <ProductTextField
+            id="product-sku"
+            label="SKU"
+            value={sku}
+            onChange={setSku}
+            placeholder="DELL-1004"
+            required
+          />
+          <ProductTextField
+            id="product-actual-price"
+            label="Actual Price"
+            type="number"
+            value={actualPrice}
+            onChange={setActualPrice}
+            placeholder="65000"
+            required
+          />
+          <ProductTextField
+            id="product-selling-price"
+            label="Selling Price"
+            type="number"
+            value={sellingPrice}
+            onChange={setSellingPrice}
+            placeholder="70000"
+            required
+          />
+          <ProductTextField
+            id="product-stock"
+            label="Stock"
+            type="number"
+            value={inStock}
+            onChange={setInStock}
+            placeholder="15"
+            required
+          />
+          <div className="erp-product-margin">
+            <span>Expected Margin</span>
+            <strong className={margin < 0 ? "erp-text-danger" : ""}>
+              {formatCurrency(margin)}
+            </strong>
+          </div>
+        </div>
+
+        {error && (
+          <span className="erp-field__helper erp-field__helper--error">
+            {error}
+          </span>
+        )}
+      </form>
     </Modal>
+  );
+}
+
+function ProductTextField({
+  id,
+  label,
+  value,
+  onChange,
+  placeholder,
+  type = "text",
+  required = false,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  type?: string;
+  required?: boolean;
+}) {
+  return (
+    <div className="erp-field">
+      <label className="erp-field__label" htmlFor={id}>
+        {label}
+        {required && <span className="erp-field__required">*</span>}
+      </label>
+      <input
+        id={id}
+        className={`erp-input${type === "number" ? " erp-input--numeric" : ""}`}
+        type={type}
+        min={type === "number" ? 0 : undefined}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+      />
+    </div>
+  );
+}
+
+function ProductDetail({ product }: { product: ApiProduct }) {
+  const stockStatus = getStockStatus(product);
+
+  return (
+    <>
+      <div className="erp-product-detail__header">
+        <ProductImage
+          product={product}
+          className="erp-product-detail__image"
+        />
+        <div className="erp-product-detail__info">
+          <h3 className="text-h2">{product.productName}</h3>
+          <span className="text-caption">{product.sku}</span>
+        </div>
+      </div>
+      <div className="erp-detail-list">
+        <div className="erp-detail-list__item">
+          <span className="erp-detail-list__label">Actual Price</span>
+          <span className="erp-detail-list__value erp-detail-list__value--numeric">
+            {formatCurrency(product.actualPrice)}
+          </span>
+        </div>
+        <div className="erp-detail-list__item">
+          <span className="erp-detail-list__label">Selling Price</span>
+          <span className="erp-detail-list__value erp-detail-list__value--numeric">
+            {formatCurrency(product.sellingPrice)}
+          </span>
+        </div>
+        <div className="erp-detail-list__item">
+          <span className="erp-detail-list__label">Stock</span>
+          <span className={`erp-badge ${getStockBadgeClass(stockStatus)}`}>
+            {getStockLabel(stockStatus)} ({product.inStock})
+          </span>
+        </div>
+        <div className="erp-detail-list__item">
+          <span className="erp-detail-list__label">Status</span>
+          <span
+            className={`erp-badge ${
+              product.isDeleted ? "erp-badge--danger" : "erp-badge--success"
+            }`}
+          >
+            {product.isDeleted ? "Deleted" : "Active"}
+          </span>
+        </div>
+        <div className="erp-detail-list__item">
+          <span className="erp-detail-list__label">Created</span>
+          <span className="erp-detail-list__value">
+            {formatDate(product.createdAt)}
+          </span>
+        </div>
+        <div className="erp-detail-list__item">
+          <span className="erp-detail-list__label">Updated</span>
+          <span className="erp-detail-list__value">
+            {formatDate(product.updatedAt)}
+          </span>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function ProductImage({
+  product,
+  className,
+}: {
+  product: ApiProduct;
+  className: string;
+}) {
+  const imageUrl = getProductImageUrl(product);
+  const [failedUrl, setFailedUrl] = useState("");
+  const canRender = imageUrl && imageUrl !== failedUrl;
+
+  useEffect(() => {
+    setFailedUrl("");
+  }, [imageUrl]);
+
+  return (
+    <span className={className}>
+      {canRender ? (
+        <img
+          src={imageUrl}
+          alt={product.productName}
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          onError={() => setFailedUrl(imageUrl)}
+        />
+      ) : (
+        <Package />
+      )}
+    </span>
   );
 }

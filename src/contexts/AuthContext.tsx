@@ -16,7 +16,6 @@ import { useAppDispatch, useAppSelector } from "@/redux/store";
 import {
   loginSuccess,
   logout as logoutAction,
-  switchRole as switchRoleAction,
 } from "@/redux/slices/authSlice";
 import type { AuthUser, Role } from "@/types/auth";
 
@@ -25,7 +24,6 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<Role>;
   logout: () => void;
-  switchRole: (role: Role) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -48,16 +46,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     dispatch(logoutAction());
   }, [dispatch]);
 
-  const switchRole = useCallback(
-    (role: Role) => {
-      dispatch(switchRoleAction(role));
-    },
-    [dispatch]
-  );
-
   return (
     <AuthContext.Provider
-      value={{ user, isAuthenticated, login, logout, switchRole }}
+      value={{ user, isAuthenticated, login, logout }}
     >
       {children}
     </AuthContext.Provider>

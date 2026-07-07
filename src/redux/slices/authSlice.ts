@@ -5,8 +5,7 @@
  * ============================================================ */
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import type { AuthSession, AuthUser, Role } from "@/types/auth";
-import { MOCK_AUTH_USERS } from "@/mock/users";
+import type { AuthSession, AuthUser } from "@/types/auth";
 
 interface AuthSliceState {
   user: AuthUser | null;
@@ -24,7 +23,20 @@ function loadStoredSession(): AuthSession | null {
 
   try {
     const rawSession = window.localStorage.getItem(AUTH_STORAGE_KEY);
-    return rawSession ? (JSON.parse(rawSession) as AuthSession) : null;
+    if (!rawSession) return null;
+
+    const session = JSON.parse(rawSession) as AuthSession;
+
+    if (
+      session.user?.id?.startsWith("usr-") ||
+      session.accessToken === "dev-admin-token" ||
+      session.refreshToken === "dev-admin-refresh-token"
+    ) {
+      clearStoredSession();
+      return null;
+    }
+
+    return session;
   } catch {
     window.localStorage.removeItem(AUTH_STORAGE_KEY);
     window.localStorage.removeItem(ACCESS_TOKEN_KEY);
@@ -76,20 +88,7 @@ export const authSlice = createSlice({
       Object.assign(state, emptyState);
       clearStoredSession();
     },
-    switchRole(state, action: PayloadAction<Role>) {
-      const mockUser = MOCK_AUTH_USERS[action.payload];
-      if (mockUser) {
-        const accessToken = state.accessToken || "dev-admin-token";
-        const refreshToken = state.refreshToken || "dev-admin-refresh-token";
-
-        state.user = mockUser;
-        state.accessToken = accessToken;
-        state.refreshToken = refreshToken;
-        state.isAuthenticated = true;
-        saveStoredSession({ user: mockUser, accessToken, refreshToken });
-      }
-    },
   },
 });
 
-export const { loginSuccess, logout, switchRole } = authSlice.actions;
+export const { loginSuccess, logout } = authSlice.actions;

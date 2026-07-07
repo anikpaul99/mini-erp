@@ -8,7 +8,6 @@ import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
-import { RoleSwitcher } from "@/components/dev/RoleSwitcher";
 
 export default function DashboardLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -45,8 +44,6 @@ export default function DashboardLayout() {
       <main className={contentClasses}>
         <Outlet />
       </main>
-
-      <RoleSwitcher />
     </div>
   );
 }

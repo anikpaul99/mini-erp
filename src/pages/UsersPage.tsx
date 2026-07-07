@@ -129,8 +129,14 @@ export default function UsersPage() {
   });
 
   const users = usersQuery.data || [];
-  const roles = (rolesQuery.data || []).filter((role) => !role.isDeleted);
-  const staffRoles = roles.filter((role) => role.name.toLowerCase() !== "customer");
+  const roles = useMemo(
+    () => (rolesQuery.data || []).filter((role) => !role.isDeleted),
+    [rolesQuery.data]
+  );
+  const staffRoles = useMemo(
+    () => roles.filter((role) => role.name.toLowerCase() !== "customer"),
+    [roles]
+  );
   const customers = users.filter(
     (user) => user.roleId.name.toLowerCase() === "customer"
   );
@@ -586,6 +592,7 @@ function UserFormModal({
   const [roleId, setRoleId] = useState("");
   const [error, setError] = useState("");
   const passwordReady = mode !== "user" || isStrongPassword(password.trim());
+  const firstRoleId = roles[0]?._id || "";
 
   useEffect(() => {
     if (!isOpen) return;
@@ -593,9 +600,9 @@ function UserFormModal({
     setEmail("");
     setPhone("");
     setPassword("");
-    setRoleId(roles[0]?._id || "");
+    setRoleId(firstRoleId);
     setError("");
-  }, [isOpen, roles]);
+  }, [firstRoleId, isOpen, mode]);
 
   const handleSubmit = async (event?: FormEvent) => {
     event?.preventDefault();

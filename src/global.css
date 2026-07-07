@@ -848,6 +848,11 @@
   @apply h-10 w-full rounded-[var(--radius-sm)] border border-neutral-300 bg-white px-3 py-0 font-sans text-sm leading-[22px] text-neutral-950 transition-[border-color,box-shadow] duration-[var(--duration-micro)] ease-[var(--ease-entrance)];
 }
 
+.erp-input-wrapper:has(.erp-input-wrapper__icon-left) .erp-input,
+.erp-input-wrapper .erp-role-search-input {
+  padding-left: 40px;
+}
+
 .erp-input-wrapper__icon-left {
   @apply pointer-events-none absolute left-3 h-4 w-4 text-neutral-500;
 }
@@ -990,6 +995,30 @@
   @apply h-3 w-3 shrink-0;
 }
 
+.erp-avatar {
+  @apply inline-flex shrink-0 items-center justify-center overflow-hidden rounded-[var(--radius-full)] bg-primary-50 font-semibold text-primary-700;
+}
+
+.erp-avatar--sm {
+  @apply h-10 w-10 text-sm;
+}
+
+.erp-avatar--lg {
+  @apply h-20 w-20 text-2xl;
+}
+
+.erp-avatar img {
+  @apply h-full w-full object-cover;
+}
+
+.erp-avatar svg {
+  @apply h-5 w-5;
+}
+
+.erp-avatar--lg svg {
+  @apply h-8 w-8;
+}
+
 /* ============================================================
  * §4.4 CARDS
  * ============================================================ */
@@ -1031,6 +1060,10 @@
   color: var(--color-accent-600);
 }
 
+.erp-stat-card__value--danger {
+  color: var(--color-danger-600);
+}
+
 .erp-stat-card__caption {
   @apply text-xs leading-4 text-neutral-500;
 }
@@ -1047,6 +1080,16 @@
 .erp-stat-card__icon-container--success {
   background-color: rgba(47, 125, 93, 0.1);
   color: var(--color-success-600);
+}
+
+.erp-stat-card__icon-container--info {
+  background-color: rgba(61, 102, 144, 0.1);
+  color: var(--color-info-600);
+}
+
+.erp-stat-card__icon-container--danger {
+  background-color: rgba(178, 58, 46, 0.1);
+  color: var(--color-danger-600);
 }
 
 .erp-stat-card__icon-container--accent {
@@ -1849,6 +1892,105 @@
   @apply grid grid-cols-[65fr_35fr] gap-5;
 }
 
+.erp-dashboard-stat-grid {
+  @apply mb-6 grid grid-cols-5 gap-5;
+}
+
+.erp-dashboard-ops-grid {
+  @apply grid grid-cols-[minmax(0,1fr)_380px] items-start gap-5;
+}
+
+.erp-dashboard-products-panel {
+  @apply rounded-[var(--radius-md)] border border-neutral-200 bg-white p-5;
+}
+
+.erp-dashboard-side-panel {
+  @apply flex flex-col gap-5;
+}
+
+.erp-dashboard-section-subtitle {
+  @apply mt-1 text-xs leading-4 text-neutral-500;
+}
+
+.erp-dashboard-product-cell {
+  @apply flex min-w-0 items-center gap-3;
+}
+
+.erp-dashboard-product-cell__image {
+  @apply flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-[var(--radius-sm)] bg-neutral-100 text-neutral-500;
+}
+
+.erp-dashboard-product-cell__image img {
+  @apply h-full w-full object-cover;
+}
+
+.erp-dashboard-product-cell__image svg {
+  @apply h-4 w-4;
+}
+
+.erp-dashboard-product-cell span:last-child {
+  @apply min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-sm font-semibold text-neutral-950;
+}
+
+.erp-dashboard-compact-products {
+  @apply flex flex-col;
+}
+
+.erp-dashboard-compact-products__item {
+  @apply flex items-center justify-between gap-3 border-b border-neutral-200 py-3;
+}
+
+.erp-dashboard-compact-products__item:last-child {
+  border-bottom: none;
+}
+
+.erp-dashboard-compact-products__name {
+  @apply block text-sm font-semibold leading-[22px] text-neutral-950;
+}
+
+.erp-dashboard-compact-products__sku {
+  @apply block font-mono text-xs leading-4 text-neutral-500;
+}
+
+.erp-dashboard-top-selling {
+  @apply flex flex-col;
+}
+
+.erp-dashboard-top-selling__item {
+  @apply flex items-start justify-between gap-3 border-b border-neutral-200 py-3;
+}
+
+.erp-dashboard-top-selling__item:last-child {
+  border-bottom: none;
+}
+
+.erp-dashboard-top-selling__name {
+  @apply block text-sm font-semibold leading-[22px] text-neutral-950;
+}
+
+.erp-dashboard-top-selling__meta {
+  @apply block text-xs leading-4 text-neutral-500;
+}
+
+.erp-dashboard-top-selling__numbers {
+  @apply shrink-0 text-right;
+}
+
+.erp-dashboard-top-selling__numbers strong {
+  @apply block font-mono text-sm font-semibold leading-[22px] text-neutral-950;
+  font-variant-numeric: tabular-nums;
+}
+
+.erp-dashboard-top-selling__numbers span {
+  @apply block font-mono text-xs leading-4 text-neutral-500;
+  font-variant-numeric: tabular-nums;
+}
+
+.erp-dashboard-inventory-value {
+  @apply block font-mono text-2xl font-medium leading-[30px] text-neutral-950;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ============================================================
  * §5.9 SALES — CREATE SALE
  * ============================================================ */
@@ -1857,8 +1999,74 @@
   @apply grid grid-cols-[60fr_40fr] items-start gap-6;
 }
 
+.erp-sale-workspace {
+  @apply flex flex-col gap-5;
+}
+
 .erp-sale-summary {
   @apply sticky top-[calc(var(--topbar-height)+32px)];
+}
+
+.erp-sale-customer-search {
+  @apply relative flex flex-col gap-3;
+}
+
+.erp-sale-customer-results {
+  @apply overflow-hidden rounded-[var(--radius-md)] border border-neutral-200 bg-white;
+}
+
+.erp-sale-customer-option {
+  @apply flex w-full cursor-pointer flex-col gap-0.5 border-0 border-b border-neutral-200 bg-white px-4 py-3 text-left transition-colors duration-[var(--duration-micro)] ease-[var(--ease-entrance)];
+}
+
+.erp-sale-customer-option:last-child {
+  border-bottom: none;
+}
+
+.erp-sale-customer-option:hover {
+  background-color: var(--color-primary-50);
+}
+
+.erp-sale-customer-option strong,
+.erp-sale-selected-customer strong {
+  @apply text-sm font-semibold leading-[22px] text-neutral-950;
+}
+
+.erp-sale-customer-option span,
+.erp-sale-selected-customer span {
+  @apply text-xs leading-4 text-neutral-500;
+}
+
+.erp-sale-create-customer-prompt {
+  @apply flex items-center justify-between gap-3 px-4 py-3;
+}
+
+.erp-sale-create-customer-prompt span {
+  @apply text-sm text-neutral-700;
+}
+
+.erp-sale-selected-customer {
+  @apply flex items-center justify-between gap-3 rounded-[var(--radius-sm)] border border-success-100 bg-success-100 px-4 py-3;
+}
+
+.erp-sale-selected-customer > div {
+  @apply flex min-w-0 flex-col;
+}
+
+.erp-sale-summary-alert {
+  @apply mb-4 rounded-[var(--radius-sm)] border border-accent-100 bg-accent-100 px-3 py-2 text-sm leading-[22px] text-accent-700;
+}
+
+.erp-sale-cart {
+  @apply flex flex-col;
+}
+
+.erp-sales-overview {
+  @apply mb-5 grid grid-cols-4 gap-4;
+}
+
+.erp-sales-detail-grid {
+  @apply grid grid-cols-1 gap-3;
 }
 
 /* Product picker */
@@ -2387,6 +2595,80 @@
   @apply block overflow-hidden text-ellipsis whitespace-nowrap font-mono text-xs leading-4 text-neutral-500;
 }
 
+.erp-product-overview {
+  @apply mb-5 grid grid-cols-3 gap-4;
+}
+
+.erp-product-panel {
+  @apply rounded-[var(--radius-md)] border border-neutral-200 bg-white;
+}
+
+.erp-product-filter {
+  @apply w-[180px];
+}
+
+.erp-product-cell {
+  @apply flex min-w-0 items-center gap-3;
+}
+
+.erp-product-cell__image {
+  @apply flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-[var(--radius-sm)] bg-neutral-100 text-neutral-500;
+}
+
+.erp-product-cell__image img {
+  @apply h-full w-full object-cover;
+}
+
+.erp-product-cell__image svg {
+  @apply h-4 w-4;
+}
+
+.erp-product-cell__body {
+  @apply min-w-0 flex-1;
+}
+
+.erp-product-cell__name {
+  @apply block overflow-hidden text-ellipsis whitespace-nowrap text-sm font-semibold text-neutral-950;
+}
+
+.erp-product-cell__meta {
+  @apply block text-xs leading-4 text-neutral-500;
+}
+
+.erp-product-form {
+  @apply flex flex-col gap-4;
+}
+
+.erp-product-upload {
+  @apply flex min-h-[180px] cursor-pointer flex-col items-center justify-center rounded-[var(--radius-sm)] border border-dashed border-neutral-300 bg-neutral-50 p-5 text-center transition-colors duration-[var(--duration-micro)] ease-[var(--ease-entrance)];
+}
+
+.erp-product-upload:hover {
+  border-color: var(--color-primary-600);
+  background-color: var(--color-primary-50);
+}
+
+.erp-product-upload--has-preview {
+  @apply border-solid bg-white p-0;
+}
+
+.erp-product-upload img {
+  @apply h-[220px] w-full rounded-[var(--radius-sm)] object-cover;
+}
+
+.erp-product-margin {
+  @apply flex min-h-10 items-center justify-between rounded-[var(--radius-sm)] border border-neutral-200 bg-neutral-50 px-3 py-2;
+}
+
+.erp-product-margin span {
+  @apply text-[13px] font-medium leading-[18px] text-neutral-700;
+}
+
+.erp-product-margin strong {
+  @apply font-mono text-sm font-semibold text-success-600;
+  font-variant-numeric: tabular-nums;
+}
+
 .erp-permissions-matrix {
   @apply w-full;
 }
@@ -2604,7 +2886,15 @@
 
 /* Product detail drawer image */
 .erp-product-detail__image {
-  @apply h-20 w-20 rounded-lg object-cover;
+  @apply flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-neutral-100 text-neutral-500;
+}
+
+.erp-product-detail__image img {
+  @apply h-full w-full object-cover;
+}
+
+.erp-product-detail__image svg {
+  @apply h-7 w-7;
 }
 
 .erp-product-detail__header {
@@ -2780,6 +3070,14 @@
     grid-template-columns: 1fr;
   }
 
+  .erp-dashboard-stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .erp-dashboard-ops-grid {
+    grid-template-columns: 1fr;
+  }
+
   .erp-sale-layout {
     grid-template-columns: 1fr;
   }
@@ -2793,6 +3091,14 @@
   }
 
   .erp-user-overview {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .erp-product-overview {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .erp-sales-overview {
     grid-template-columns: repeat(2, 1fr);
   }
 
@@ -2918,6 +3224,19 @@
     grid-template-columns: 1fr;
   }
 
+  .erp-product-overview {
+    grid-template-columns: 1fr;
+  }
+
+  .erp-sales-overview {
+    grid-template-columns: 1fr;
+  }
+
+  .erp-sale-create-customer-prompt {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
   .erp-role-toolbar {
     align-items: stretch;
   }
@@ -2938,6 +3257,10 @@
     width: 100%;
   }
 
+  .erp-product-filter {
+    width: 100%;
+  }
+
   .erp-user-form__grid,
   .erp-user-permission-summary {
     grid-template-columns: 1fr;
@@ -2953,6 +3276,14 @@
 
   .erp-dashboard-grid {
     grid-template-columns: 1fr;
+  }
+
+  .erp-dashboard-stat-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .erp-dashboard-products-panel {
+    padding: 16px;
   }
 
   .erp-sale-layout {
