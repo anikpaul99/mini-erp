@@ -1,12 +1,11 @@
 /* ============================================================
  * App — Root Component + React Router
- * ============================================================
- * All routes are statically accessible (no auth gating).
  * ============================================================ */
 
 import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ToastProvider } from "@/components/ui/Toast";
+import { AuthGuard } from "@/components/common/AuthGuard";
 import DashboardLayout from "@/layouts/DashboardLayout";
 
 /* Pages */
@@ -29,18 +28,20 @@ export default function App() {
         <Routes>
           {/* Auth routes */}
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/403" element={<ForbiddenPage />} />
 
-          {/* Dashboard routes — wrapped in shell layout */}
-          <Route element={<DashboardLayout />}>
-            <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/products" element={<ProductsPage />} />
-            <Route path="/sales/create" element={<CreateSalePage />} />
-            <Route path="/sales/history" element={<SalesHistoryPage />} />
-            <Route path="/customers" element={<CustomersPage />} />
-            <Route path="/users" element={<UsersPage />} />
-            <Route path="/roles" element={<RolesPage />} />
-            <Route path="/account" element={<AccountPage />} />
-            <Route path="/403" element={<ForbiddenPage />} />
+          {/* Protected dashboard routes — Admin only */}
+          <Route element={<AuthGuard allowedRoles={["Admin"]} />}>
+            <Route element={<DashboardLayout />}>
+              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/products" element={<ProductsPage />} />
+              <Route path="/sales/create" element={<CreateSalePage />} />
+              <Route path="/sales/history" element={<SalesHistoryPage />} />
+              <Route path="/customers" element={<CustomersPage />} />
+              <Route path="/users" element={<UsersPage />} />
+              <Route path="/roles" element={<RolesPage />} />
+              <Route path="/account" element={<AccountPage />} />
+            </Route>
           </Route>
 
           {/* Redirects & fallback */}

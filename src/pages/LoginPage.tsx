@@ -1,17 +1,18 @@
 /* ============================================================
  * Screen — Login (§5.1)
  * ============================================================
- * Pure static login page — uses React Router for navigation.
+ * Authenticates with the backend and redirects into the app.
  * ============================================================ */
 
 import { useState } from "react";
-import { useNavigate, Navigate } from "react-router-dom";
+import { useLocation, useNavigate, Navigate } from "react-router-dom";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { ROLE_HOME_ROUTE } from "@/constants/permissions";
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login, user } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -19,6 +20,9 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [authError, setAuthError] = useState("");
+  const from =
+    (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ||
+    "/dashboard";
 
   if (user) {
     return <Navigate to={ROLE_HOME_ROUTE[user.role]} replace />;
@@ -48,11 +52,15 @@ export default function LoginPage() {
       const success = await login(email, password);
       if (!success) {
         setAuthError("Incorrect email or password.");
-      } else {
+      } else if (from === "/403") {
         navigate("/dashboard", { replace: true });
+      } else {
+        navigate(from, { replace: true });
       }
-    } catch {
-      setAuthError("Incorrect email or password.");
+    } catch (error) {
+      setAuthError(
+        error instanceof Error ? error.message : "Incorrect email or password."
+      );
     } finally {
       setLoading(false);
     }
@@ -110,7 +118,7 @@ export default function LoginPage() {
                 id="login-password"
                 className={`erp-input${errors.password ? " erp-input--error" : ""}`}
                 type={showPassword ? "text" : "password"}
-                placeholder="••••••••"
+                placeholder="Password"
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value);
@@ -140,7 +148,7 @@ export default function LoginPage() {
             disabled={loading}
           >
             {loading && <Loader2 className="erp-btn__spinner" />}
-            {loading ? "Signing in…" : "Sign in"}
+            {loading ? "Signing in..." : "Sign in"}
           </button>
         </form>
 

@@ -2,24 +2,17 @@
  * Layout — Dashboard Shell (React Router)
  * ============================================================
  * Uses <Outlet /> for nested route rendering.
- * No auth gating — all routes statically accessible.
  * ============================================================ */
 
 import { useState } from "react";
-import { Outlet, Navigate } from "react-router-dom";
+import { Outlet } from "react-router-dom";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
 import { RoleSwitcher } from "@/components/dev/RoleSwitcher";
-import { useAuth } from "@/contexts/AuthContext";
 
 export default function DashboardLayout() {
-  const { user } = useAuth();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
 
   const contentClasses = [
     "erp-content",

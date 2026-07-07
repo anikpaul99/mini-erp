@@ -11,14 +11,14 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
+import { loginWithEmailPassword } from "@/api/auth";
 import { useAppDispatch, useAppSelector } from "@/redux/store";
 import {
-  login as loginAction,
+  loginSuccess,
   logout as logoutAction,
   switchRole as switchRoleAction,
 } from "@/redux/slices/authSlice";
 import type { AuthUser, Role } from "@/types/auth";
-import { MOCK_AUTH_USERS } from "@/mock/users";
 
 interface AuthContextValue {
   user: AuthUser | null;
@@ -36,13 +36,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
 
   const login = useCallback(
-    async (email: string, _password: string): Promise<boolean> => {
-      await new Promise((r) => setTimeout(r, 500));
-
-      const found = Object.values(MOCK_AUTH_USERS).find(
-        (u) => u.email === email
-      );
-      dispatch(loginAction(found || MOCK_AUTH_USERS.Admin));
+    async (email: string, password: string): Promise<boolean> => {
+      const session = await loginWithEmailPassword({ email, password });
+      dispatch(loginSuccess(session));
       return true;
     },
     [dispatch]

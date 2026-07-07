@@ -11,6 +11,12 @@ export const APP_CONFIG = {
   /** Public-facing URL of this web app */
   url: import.meta.env.VITE_APP_URL || "http://localhost:3000",
 
+  /** Backend API base URL */
+  apiBaseUrl:
+    import.meta.env.VITE_BASE_URL ||
+    import.meta.env.NEXT_PUBLIC_BASE_URL ||
+    "http://localhost:5000/api/v1",
+
   /** Default pagination settings */
   pagination: {
     defaultPage: 1,
