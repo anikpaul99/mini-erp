@@ -8,7 +8,13 @@ import { useState } from "react";
 import { useLocation, useNavigate, Navigate } from "react-router-dom";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { ROLE_HOME_ROUTE } from "@/constants/permissions";
+import { ROLE_HOME_ROUTE, ROLE_ROUTE_ACCESS } from "@/constants/permissions";
+
+function looksLikeWeakStaffPassword(password: string) {
+  return !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/.test(
+    password
+  );
+}
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -49,18 +55,18 @@ export default function LoginPage() {
 
     setLoading(true);
     try {
-      const success = await login(email, password);
-      if (!success) {
-        setAuthError("Incorrect email or password.");
-      } else if (from === "/403") {
-        navigate("/dashboard", { replace: true });
-      } else {
-        navigate(from, { replace: true });
-      }
+      const role = await login(email, password);
+      const homeRoute = ROLE_HOME_ROUTE[role];
+      const canUseRequestedRoute = ROLE_ROUTE_ACCESS[role].includes(from);
+
+      navigate(canUseRequestedRoute ? from : homeRoute, { replace: true });
     } catch (error) {
-      setAuthError(
-        error instanceof Error ? error.message : "Incorrect email or password."
-      );
+      const message =
+        error instanceof Error ? error.message : "Incorrect email or password.";
+      const weakPasswordHint = looksLikeWeakStaffPassword(password)
+        ? " This password does not match the required staff password policy. Recreate the user with a password like Employee123@."
+        : "";
+      setAuthError(`${message}${weakPasswordHint}`);
     } finally {
       setLoading(false);
     }

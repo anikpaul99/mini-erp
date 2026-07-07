@@ -2028,6 +2028,365 @@
  * §5.20 ROLES & PERMISSIONS MATRIX
  * ============================================================ */
 
+.erp-role-overview {
+  @apply mb-5 grid grid-cols-4 gap-4;
+}
+
+.erp-role-stat {
+  @apply rounded-[var(--radius-md)] border border-neutral-200 bg-white p-4;
+}
+
+.erp-role-stat__label {
+  @apply block text-[13px] font-medium uppercase leading-[18px] tracking-[0.02em] text-neutral-700;
+}
+
+.erp-role-stat__value {
+  @apply mt-2 block font-mono text-2xl font-medium leading-[30px] text-neutral-950;
+  font-variant-numeric: tabular-nums;
+}
+
+.erp-roles-shell {
+  @apply grid grid-cols-[minmax(0,1fr)_380px] items-start gap-5;
+}
+
+.erp-role-panel,
+.erp-permission-panel {
+  @apply rounded-[var(--radius-md)] border border-neutral-200 bg-white;
+}
+
+.erp-role-panel__header {
+  @apply flex items-start justify-between gap-4 border-b border-neutral-200 px-5 py-4;
+}
+
+.erp-role-panel__subtitle {
+  @apply mt-1 text-xs leading-4 text-neutral-500;
+}
+
+.erp-role-toolbar {
+  @apply flex flex-wrap items-center gap-3 border-b border-neutral-200 px-5 py-4;
+}
+
+.erp-role-toolbar__search {
+  @apply min-w-[260px] flex-1;
+}
+
+.erp-role-search-input {
+  padding-left: 36px;
+}
+
+.erp-segmented {
+  @apply inline-flex rounded-[var(--radius-sm)] border border-neutral-300 bg-neutral-50 p-0.5;
+}
+
+.erp-segmented__item {
+  @apply h-8 cursor-pointer rounded-[var(--radius-sm)] border-0 bg-transparent px-3 text-xs font-semibold text-neutral-700 transition-colors duration-[var(--duration-micro)] ease-[var(--ease-entrance)];
+}
+
+.erp-segmented__item:hover {
+  background-color: var(--color-neutral-100);
+}
+
+.erp-segmented__item--active {
+  @apply bg-white text-neutral-950 shadow-[0_1px_2px_rgba(20,21,26,0.08)];
+}
+
+.erp-role-empty {
+  @apply p-8;
+}
+
+.erp-role-name-cell {
+  @apply flex min-w-0 items-center gap-3;
+}
+
+.erp-role-name-cell__icon {
+  @apply flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-sm)] bg-primary-50 text-primary-600;
+}
+
+.erp-role-name-cell__icon svg {
+  @apply h-4 w-4;
+}
+
+.erp-role-name-cell__name {
+  @apply block text-sm font-semibold text-neutral-950;
+}
+
+.erp-role-name-cell__id {
+  @apply block max-w-[220px] overflow-hidden text-ellipsis whitespace-nowrap font-mono text-xs text-neutral-500;
+}
+
+.erp-role-mobile-actions {
+  @apply mt-3 flex gap-2;
+}
+
+.erp-role-form {
+  @apply flex flex-col gap-4;
+}
+
+.erp-permission-panel {
+  @apply sticky top-[calc(var(--topbar-height)+32px)] max-h-[calc(100vh-var(--topbar-height)-64px)] overflow-hidden;
+}
+
+.erp-permission-panel__icon {
+  @apply h-5 w-5 shrink-0 text-primary-600;
+}
+
+.erp-permission-modules {
+  @apply flex max-h-[calc(100vh-var(--topbar-height)-150px)] flex-col gap-3 overflow-y-auto p-4;
+}
+
+.erp-permission-module {
+  @apply rounded-[var(--radius-sm)] border border-neutral-200 bg-neutral-50;
+}
+
+.erp-permission-module__header {
+  @apply flex items-start justify-between gap-3 border-b border-neutral-200 px-4 py-3;
+}
+
+.erp-permission-module__title {
+  @apply text-sm font-semibold leading-[22px] text-neutral-950;
+}
+
+.erp-permission-module__meta {
+  @apply text-xs leading-4 text-neutral-500;
+}
+
+.erp-permission-list {
+  @apply flex flex-col;
+}
+
+.erp-permission-item {
+  @apply flex gap-3 border-b border-neutral-200 px-4 py-3;
+}
+
+.erp-permission-item:last-child {
+  border-bottom: none;
+}
+
+.erp-permission-item__icon {
+  @apply mt-0.5 h-4 w-4 shrink-0 text-success-600;
+}
+
+.erp-permission-item__body {
+  @apply min-w-0 flex-1;
+}
+
+.erp-permission-item__name {
+  @apply block text-sm font-medium leading-[22px] text-neutral-950;
+}
+
+.erp-permission-item__code {
+  @apply block overflow-hidden text-ellipsis whitespace-nowrap font-mono text-xs leading-4 text-neutral-500;
+}
+
+.erp-blueprint-link {
+  @apply flex max-w-[240px] cursor-pointer flex-col items-start rounded-[var(--radius-sm)] border-0 bg-transparent p-0 text-left;
+}
+
+.erp-blueprint-link span {
+  @apply max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-sm font-semibold text-primary-600;
+}
+
+.erp-blueprint-link small {
+  @apply text-xs leading-4 text-neutral-500;
+}
+
+.erp-blueprint-link:hover span {
+  text-decoration: underline;
+}
+
+.erp-blueprint-list {
+  @apply flex max-h-[calc(100vh-var(--topbar-height)-150px)] flex-col gap-3 overflow-y-auto p-4;
+}
+
+.erp-blueprint-card {
+  @apply rounded-[var(--radius-sm)] border border-neutral-200 bg-neutral-50 p-4;
+}
+
+.erp-blueprint-card__header {
+  @apply mb-3 flex items-start justify-between gap-3;
+}
+
+.erp-blueprint-card__title {
+  @apply text-sm font-semibold leading-[22px] text-neutral-950;
+}
+
+.erp-blueprint-card__meta {
+  @apply text-xs leading-4 text-neutral-500;
+}
+
+.erp-blueprint-card__summary {
+  @apply mb-3 flex items-center justify-between gap-2;
+}
+
+.erp-blueprint-card__date {
+  @apply text-xs leading-4 text-neutral-500;
+}
+
+.erp-blueprint-card__permissions {
+  @apply flex flex-wrap gap-1.5;
+}
+
+.erp-permission-chip {
+  @apply inline-flex max-w-full items-center rounded-[var(--radius-sm)] bg-white px-2 py-1 font-mono text-[11px] leading-4 text-neutral-700;
+}
+
+.erp-permission-chip--muted {
+  @apply bg-neutral-100 font-sans text-neutral-500;
+}
+
+.erp-blueprint-form {
+  @apply flex flex-col gap-4;
+}
+
+.erp-blueprint-form__summary {
+  @apply flex items-center justify-between rounded-[var(--radius-sm)] border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs font-medium text-neutral-700;
+}
+
+.erp-blueprint-permission-groups {
+  @apply flex max-h-[420px] flex-col gap-3 overflow-y-auto pr-1;
+}
+
+.erp-blueprint-permission-group {
+  @apply rounded-[var(--radius-sm)] border border-neutral-200 bg-neutral-50;
+}
+
+.erp-blueprint-permission-group__header {
+  @apply flex items-center justify-between gap-3 border-b border-neutral-200 px-4 py-3;
+}
+
+.erp-blueprint-permission-options {
+  @apply grid grid-cols-1 gap-2 p-3;
+}
+
+.erp-blueprint-permission-option {
+  @apply flex cursor-pointer items-start gap-3 rounded-[var(--radius-sm)] border border-neutral-200 bg-white p-3 transition-colors duration-[var(--duration-micro)] ease-[var(--ease-entrance)];
+}
+
+.erp-blueprint-permission-option:hover {
+  border-color: var(--color-primary-100);
+  background-color: var(--color-primary-50);
+}
+
+.erp-blueprint-permission-option--selected {
+  @apply border-primary-600 bg-primary-50;
+}
+
+.erp-blueprint-permission-option input {
+  @apply mt-1 h-4 w-4 shrink-0 accent-primary-600;
+}
+
+.erp-blueprint-permission-option span {
+  @apply min-w-0 flex-1;
+}
+
+.erp-blueprint-permission-option strong {
+  @apply block text-sm font-semibold leading-[22px] text-neutral-950;
+}
+
+.erp-blueprint-permission-option code {
+  @apply block overflow-hidden text-ellipsis whitespace-nowrap font-mono text-xs leading-4 text-neutral-500;
+}
+
+.erp-blueprint-permission-option svg {
+  @apply mt-0.5 h-4 w-4 shrink-0 text-success-600;
+}
+
+.erp-user-overview {
+  @apply mb-5 grid grid-cols-4 gap-4;
+}
+
+.erp-user-panel {
+  @apply rounded-[var(--radius-md)] border border-neutral-200 bg-white;
+}
+
+.erp-user-role-filter {
+  @apply w-[220px];
+}
+
+.erp-user-cell {
+  @apply flex min-w-0 items-center gap-3;
+}
+
+.erp-user-cell__avatar {
+  @apply flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-full)] bg-primary-100 text-xs font-bold text-primary-700;
+}
+
+.erp-user-cell__body {
+  @apply min-w-0 flex-1;
+}
+
+.erp-user-cell__name {
+  @apply block overflow-hidden text-ellipsis whitespace-nowrap text-sm font-semibold text-neutral-950;
+}
+
+.erp-user-cell__email {
+  @apply block overflow-hidden text-ellipsis whitespace-nowrap text-xs leading-4 text-neutral-500;
+}
+
+.erp-user-blueprint {
+  @apply flex max-w-[220px] flex-col;
+}
+
+.erp-user-blueprint span {
+  @apply overflow-hidden text-ellipsis whitespace-nowrap text-sm font-semibold text-neutral-950;
+}
+
+.erp-user-blueprint small {
+  @apply text-xs leading-4 text-neutral-500;
+}
+
+.erp-user-form {
+  @apply flex flex-col gap-4;
+}
+
+.erp-user-form__grid {
+  @apply grid grid-cols-2 gap-4;
+}
+
+.erp-user-note {
+  @apply rounded-[var(--radius-sm)] border border-info-100 bg-info-100 px-3 py-2 text-sm leading-[22px] text-info-600;
+}
+
+.erp-user-permission-drawer {
+  @apply flex flex-col gap-4;
+}
+
+.erp-user-permission-summary {
+  @apply grid grid-cols-2 gap-3;
+}
+
+.erp-user-permission-summary > div {
+  @apply rounded-[var(--radius-sm)] border border-neutral-200 bg-neutral-50 p-3;
+}
+
+.erp-user-permission-summary__label {
+  @apply mb-1 block text-xs font-medium uppercase leading-4 tracking-[0.02em] text-neutral-500;
+}
+
+.erp-user-permission-summary strong {
+  @apply block overflow-hidden text-ellipsis whitespace-nowrap text-sm font-semibold text-neutral-950;
+}
+
+.erp-user-permission-list {
+  @apply flex flex-col gap-2;
+}
+
+.erp-user-permission-row {
+  @apply flex items-start justify-between gap-3 rounded-[var(--radius-sm)] border border-neutral-200 bg-white p-3;
+}
+
+.erp-user-permission-row__body {
+  @apply min-w-0 flex-1;
+}
+
+.erp-user-permission-row__name {
+  @apply block text-sm font-semibold leading-[22px] text-neutral-950;
+}
+
+.erp-user-permission-row code {
+  @apply block overflow-hidden text-ellipsis whitespace-nowrap font-mono text-xs leading-4 text-neutral-500;
+}
+
 .erp-permissions-matrix {
   @apply w-full;
 }
@@ -2429,6 +2788,27 @@
     position: static;
   }
 
+  .erp-role-overview {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .erp-user-overview {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .erp-roles-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .erp-permission-panel {
+    position: static;
+    max-height: none;
+  }
+
+  .erp-permission-modules {
+    max-height: none;
+  }
+
   .erp-topbar__user-info {
     display: none;
   }
@@ -2528,6 +2908,43 @@
   .erp-filter-row {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .erp-role-overview {
+    grid-template-columns: 1fr;
+  }
+
+  .erp-user-overview {
+    grid-template-columns: 1fr;
+  }
+
+  .erp-role-toolbar {
+    align-items: stretch;
+  }
+
+  .erp-role-toolbar__search {
+    min-width: 100%;
+  }
+
+  .erp-segmented {
+    width: 100%;
+  }
+
+  .erp-segmented__item {
+    flex: 1;
+  }
+
+  .erp-user-role-filter {
+    width: 100%;
+  }
+
+  .erp-user-form__grid,
+  .erp-user-permission-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .erp-role-panel__header {
+    flex-direction: column;
   }
 
   .erp-stat-cards {

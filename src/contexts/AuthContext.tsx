@@ -23,7 +23,7 @@ import type { AuthUser, Role } from "@/types/auth";
 interface AuthContextValue {
   user: AuthUser | null;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<Role>;
   logout: () => void;
   switchRole: (role: Role) => void;
 }
@@ -36,10 +36,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
 
   const login = useCallback(
-    async (email: string, password: string): Promise<boolean> => {
+    async (email: string, password: string): Promise<Role> => {
       const session = await loginWithEmailPassword({ email, password });
       dispatch(loginSuccess(session));
-      return true;
+      return session.user.role;
     },
     [dispatch]
   );
